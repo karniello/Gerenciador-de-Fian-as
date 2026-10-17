@@ -1,0 +1,51 @@
+{
+  "$schema": "https://raw.githubusercontent.com/electron-userland/electron-builder/master/packages/app-builder-lib/scheme.json",
+  "appId": "com.alzexfinance.desktop",
+  "productName": "Alzex Finance Pro",
+  "copyright": "Copyright © 2026 Alzex Finance Pro Team",
+  "directories": {
+    "output": "release",
+    "buildResources": "build"
+  },
+  "files": [
+    "dist/**/*",
+    "dist-electron/**/*"
+  ],
+  "asar": true,
+  "win": {
+    "target": [
+      {
+        "target": "nsis",
+        "arch": ["x64"]
+      },
+      {
+        "target": "portable",
+        "arch": ["x64"]
+      }
+    ],
+    "icon": "public/icon.ico",
+    "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
+  },
+  "portable": {
+    "artifactName": "${productName}-Portable-${version}.exe"
+  },
+  "nsis": {
+    "oneClick": false,
+    "allowToChangeInstallationDirectory": true,
+    "createDesktopShortcut": true,
+    "createStartMenuShortcut": true,
+    "shortcutName": "Alzex Finance Pro"
+  },
+  "fileAssociations": [
+    {
+      "ext": "alzex",
+      "name": "Alzex Finance Database",
+      "role": "Editor"
+    },
+    {
+      "ext": "sqlite",
+      "name": "SQLite Database",
+      "role": "Viewer"
+    }
+  ]
+}

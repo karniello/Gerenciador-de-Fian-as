@@ -1,0 +1,6 @@
+{
+  "name": "Alzex Finance Pro - Gestão Financeira Pessoal & Familiar",
+  "description": "Aplicação desktop moderna inspirada no Alzex Finance Pro com arquitetura Electron + SQLite + Drizzle ORM, controle de contas, transações divididas (splits), membros da família, orçamentos e relatórios offline-first.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
