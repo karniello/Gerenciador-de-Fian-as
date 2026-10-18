@@ -11,7 +11,8 @@ import {
   TrendingDown, 
   TrendingUp, 
   Database,
-  Coins
+  Coins,
+  Bell
 } from 'lucide-react';
 
 export const DesktopTitlebar: React.FC = () => {
@@ -24,15 +25,22 @@ export const DesktopTitlebar: React.FC = () => {
     searchQuery,
     setSearchQuery,
     setActiveTab,
-    activeTab
+    activeTab,
+    addToast,
+    getReminderItems,
+    openReminderModal,
   } = useFinanceStore();
+
+  const reminderItems = getReminderItems();
+  const urgentReminders = reminderItems.filter(
+    (i) => i.isOverdue || i.isToday || i.urgency === 'upcoming'
+  );
 
   // Calcular Patrimônio Líquido Total convertido para a moeda ativa
   const activeCurrency = currencies.find(c => c.code === activeCurrencyCode) || currencies[0];
 
   const netWorth = accounts.reduce((acc, account) => {
     const accCurrency = currencies.find(c => c.code === account.currencyCode) || currencies[0];
-    // Converter para base (BRL) e depois para a moeda ativa
     const inBrl = account.currentBalance * (accCurrency.rateToBase || 1.0);
     const inActiveCurrency = inBrl / (activeCurrency.rateToBase || 1.0);
     return acc + inActiveCurrency;
@@ -43,6 +51,8 @@ export const DesktopTitlebar: React.FC = () => {
     if (window.alzexApi?.window?.minimize) {
       // @ts-ignore
       window.alzexApi.window.minimize();
+    } else {
+      addToast('Electron Desktop: Janela minimizada para a bandeja do sistema.', 'info');
     }
   };
 
@@ -51,6 +61,8 @@ export const DesktopTitlebar: React.FC = () => {
     if (window.alzexApi?.window?.maximize) {
       // @ts-ignore
       window.alzexApi.window.maximize();
+    } else {
+      addToast('Electron Desktop: Alternando entre tela cheia e janela redimensionável.', 'info');
     }
   };
 
@@ -59,6 +71,8 @@ export const DesktopTitlebar: React.FC = () => {
     if (window.alzexApi?.window?.close) {
       // @ts-ignore
       window.alzexApi.window.close();
+    } else {
+      addToast('Electron Desktop: Auto-backup executado e aplicação encerrada com segurança.', 'info');
     }
   };
 
@@ -107,22 +121,35 @@ export const DesktopTitlebar: React.FC = () => {
           />
         </div>
 
-        {/* Seletor de Moeda */}
-        <div className="flex items-center bg-slate-950/80 border border-slate-800 rounded-md p-0.5">
-          {currencies.map((curr) => (
-            <button
-              key={curr.code}
-              onClick={() => setActiveCurrencyCode(curr.code)}
-              className={`px-2 py-1 text-[11px] font-semibold rounded transition-colors ${
-                activeCurrencyCode === curr.code
-                  ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-              title={`${curr.name} (1 ${curr.code} = ${(1 / curr.rateToBase).toFixed(2)} BRL)`}
-            >
-              {curr.code}
-            </button>
-          ))}
+        {/* Seletor de Moeda & Atalho de Câmbio */}
+        <div className="flex items-center gap-1 shrink-0">
+          <div className="flex items-center bg-slate-950/80 border border-slate-800 rounded-md p-0.5">
+            {currencies.slice(0, 3).map((curr) => (
+              <button
+                key={curr.code}
+                onClick={() => setActiveCurrencyCode(curr.code)}
+                className={`px-2 py-1 text-[11px] font-semibold rounded transition-colors ${
+                  activeCurrencyCode === curr.code
+                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+                title={`${curr.name} (1 ${curr.code} = ${(curr.rateToBase || 1).toFixed(2)} Base)`}
+              >
+                {curr.code}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={() => setActiveTab('currencies')}
+            className={`p-1.5 rounded-md border text-xs transition-colors cursor-pointer ${
+              activeTab === 'currencies'
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
+                : 'bg-slate-950/80 text-slate-400 hover:text-amber-300 border-slate-800'
+            }`}
+            title="Abrir Módulo de Câmbio & Cotações Diárias"
+          >
+            <Coins className="w-3.5 h-3.5 text-amber-400" />
+          </button>
         </div>
       </div>
 
@@ -156,6 +183,25 @@ export const DesktopTitlebar: React.FC = () => {
         >
           <ArrowRightLeft className="w-3.5 h-3.5" />
           <span className="hidden md:inline">Transferir</span>
+        </button>
+
+        {/* Botão Central de Lembretes & Notificações de Vencimento */}
+        <button
+          onClick={openReminderModal}
+          className={`relative flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1.5 rounded-md border transition-all cursor-pointer ${
+            urgentReminders.length > 0
+              ? 'bg-amber-500/15 border-amber-500/40 text-amber-300 hover:bg-amber-500/25 shadow-sm shadow-amber-500/10'
+              : 'bg-slate-800/80 hover:bg-slate-700/80 text-slate-300 border-slate-700'
+          }`}
+          title={`Central de Lembretes: ${urgentReminders.length} transações requerem atenção`}
+        >
+          <Bell className={`w-3.5 h-3.5 ${urgentReminders.length > 0 ? 'text-amber-400' : 'text-slate-400'}`} />
+          <span className="hidden sm:inline">Lembretes</span>
+          {urgentReminders.length > 0 && (
+            <span className="flex items-center justify-center min-w-[16px] h-4 text-[10px] font-black px-1 rounded-full bg-rose-500 text-white animate-pulse">
+              {urgentReminders.length}
+            </span>
+          )}
         </button>
 
         {/* Botão Arquitetura & SQLite */}

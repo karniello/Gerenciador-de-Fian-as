@@ -18,7 +18,12 @@ import {
   Landmark, 
   TrendingUp,
   FolderGit2,
-  Check
+  Check,
+  Database,
+  Edit2,
+  CalendarDays,
+  FolderTree,
+  Coins
 } from 'lucide-react';
 import { Account, AccountType } from '../../types';
 
@@ -36,8 +41,14 @@ export const Sidebar: React.FC = () => {
     selectedProjectId,
     setSelectedProjectId,
     openNewAccountModal,
-    activeCurrencyCode
+    openEditAccountModal,
+    activeCurrencyCode,
+    getReminderItems,
+    bankConnections,
   } = useFinanceStore();
+
+  const reminderItems = getReminderItems();
+  const urgentCount = reminderItems.filter((i) => i.isOverdue || i.isToday || i.urgency === 'upcoming').length;
 
   const [isAccountsExpanded, setIsAccountsExpanded] = useState(true);
   const [isFamilyExpanded, setIsFamilyExpanded] = useState(true);
@@ -54,9 +65,14 @@ export const Sidebar: React.FC = () => {
   const navItems: { id: ActiveTab; label: string; icon: any; count?: number }[] = [
     { id: 'dashboard', label: 'Painel Geral', icon: LayoutDashboard },
     { id: 'transactions', label: 'Livro de Transações', icon: ReceiptText },
+    { id: 'open_banking', label: 'Bancos & Open Finance', icon: Landmark, count: bankConnections.length },
+    { id: 'calendar', label: 'Calendário Anual', icon: CalendarDays },
+    { id: 'categories', label: 'Categorias & Árvore', icon: FolderTree },
+    { id: 'currencies', label: 'Câmbio & Multi-Moedas', icon: Coins },
     { id: 'budgets', label: 'Metas e Orçamentos', icon: PieChart },
     { id: 'reports', label: 'Relatórios & Gráficos', icon: BarChart3 },
     { id: 'recurring', label: 'Agendadas & Recorrentes', icon: CalendarClock },
+    { id: 'architecture', label: 'Arquitetura & SQLite', icon: Database },
   ];
 
   return (
@@ -81,6 +97,12 @@ export const Sidebar: React.FC = () => {
                 <Icon className={`w-4 h-4 ${isActive ? 'text-emerald-400' : 'text-slate-400'}`} />
                 <span>{item.label}</span>
               </div>
+
+              {item.id === 'recurring' && urgentCount > 0 && (
+                <span className="bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-bold px-1.5 py-0.2 rounded-full">
+                  {urgentCount}
+                </span>
+              )}
             </button>
           );
         })}
@@ -143,26 +165,49 @@ export const Sidebar: React.FC = () => {
                     {groupAccounts.map((account) => {
                       const isSelected = selectedAccountId === account.id;
                       return (
-                        <button
+                        <div
                           key={account.id}
-                          onClick={() => setSelectedAccountId(isSelected ? null : account.id)}
-                          className={`w-full flex items-center justify-between px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
+                          className={`w-full group flex items-center justify-between px-2.5 py-1 rounded text-xs transition-colors cursor-pointer ${
                             isSelected
                               ? 'bg-slate-800 text-emerald-300 font-semibold border-l-2 border-emerald-500'
                               : 'text-slate-300 hover:bg-slate-800/60 hover:text-slate-100'
                           }`}
+                          onClick={() => {
+                            setSelectedAccountId(isSelected ? null : account.id);
+                            setActiveTab('transactions');
+                          }}
                         >
-                          <div className="flex items-center gap-2 truncate">
+                          <div className="flex items-center gap-2 truncate flex-1 mr-1">
                             <div 
                               className="w-2.5 h-2.5 rounded-full flex-shrink-0"
                               style={{ backgroundColor: account.color }}
                             />
                             <span className="truncate">{account.name}</span>
+                            {account.isBankLinked && (
+                              <span
+                                className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0"
+                                title="Conta sincronizada via Open Finance"
+                              />
+                            )}
                           </div>
-                          <span className={`text-[11px] font-mono ml-2 flex-shrink-0 ${account.currentBalance < 0 ? 'text-rose-400' : 'text-slate-300'}`}>
-                            {formatCurrency(account.currentBalance, account.currencyCode)}
-                          </span>
-                        </button>
+
+                          <div className="flex items-center gap-1.5 flex-shrink-0">
+                            <span className={`text-[11px] font-mono ${account.currentBalance < 0 ? 'text-rose-400' : 'text-slate-300'}`}>
+                              {formatCurrency(account.currentBalance, account.currencyCode)}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                openEditAccountModal(account);
+                              }}
+                              className="opacity-0 group-hover:opacity-100 p-0.5 text-slate-400 hover:text-emerald-400 rounded transition-opacity"
+                              title="Editar configurações da conta"
+                            >
+                              <Edit2 className="w-3 h-3" />
+                            </button>
+                          </div>
+                        </div>
                       );
                     })}
                   </div>

@@ -18,7 +18,10 @@ import {
   Plus, 
   Filter, 
   X,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Sparkles,
+  CreditCard,
+  Landmark
 } from 'lucide-react';
 import { Transaction } from '../../types';
 
@@ -39,6 +42,7 @@ export const TransactionGrid: React.FC = () => {
     openEditTransactionModal,
     deleteTransaction,
     duplicateTransaction,
+    markTransactionAsCleared,
     searchQuery,
     setSearchQuery,
     activeCurrencyCode,
@@ -318,8 +322,34 @@ export const TransactionGrid: React.FC = () => {
                       {/* Beneficiário & Detalhes */}
                       <td className="py-2 px-3">
                         <div className="flex flex-col max-w-xs md:max-w-md">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <span className="font-semibold text-slate-100 truncate">{tx.payee}</span>
+
+                            {/* Canal / Método de Pagamento */}
+                            {tx.paymentMethod === 'credit_card' && (
+                              <span className="text-[9px] font-semibold bg-purple-500/20 text-purple-300 px-1.5 py-0.2 rounded border border-purple-500/30 flex items-center gap-0.5">
+                                <CreditCard className="w-2.5 h-2.5" />
+                                Crédito{tx.cardLast4 ? ` *${tx.cardLast4}` : ''}
+                              </span>
+                            )}
+                            {tx.paymentMethod === 'debit_card' && (
+                              <span className="text-[9px] font-semibold bg-sky-500/20 text-sky-300 px-1.5 py-0.2 rounded border border-sky-500/30 flex items-center gap-0.5">
+                                <CreditCard className="w-2.5 h-2.5" />
+                                Débito
+                              </span>
+                            )}
+                            {tx.paymentMethod === 'account_debit' && (
+                              <span className="text-[9px] font-semibold bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded border border-amber-500/30 flex items-center gap-0.5">
+                                <Landmark className="w-2.5 h-2.5" />
+                                Débito em Conta
+                              </span>
+                            )}
+                            {tx.isRecurring && (
+                              <span className="text-[9px] font-semibold bg-rose-500/20 text-rose-300 px-1 py-0.2 rounded border border-rose-500/30">
+                                🔄 Recorrente
+                              </span>
+                            )}
+
                             {tx.isSplit && (
                               <button
                                 onClick={(e) => toggleSplitExpand(tx.id, e)}
@@ -334,7 +364,7 @@ export const TransactionGrid: React.FC = () => {
                           </div>
                           {tx.notes && <span className="text-[11px] text-slate-400 truncate">{tx.notes}</span>}
                           {tx.tags && tx.tags.length > 0 && (
-                            <div className="flex items-center gap-1 mt-0.5">
+                            <div className="flex items-center gap-1 mt-0.5 flex-wrap">
                               {tx.tags.map((tag) => (
                                 <span key={tag} className="text-[9px] text-slate-400 font-mono bg-slate-900 px-1 py-0.2 rounded border border-slate-800">
                                   #{tag}
@@ -362,7 +392,14 @@ export const TransactionGrid: React.FC = () => {
                               <IconRenderer name={category.icon} className="w-3 h-3" />
                             </div>
                             <div className="flex flex-col">
-                              <span className="font-medium text-slate-200">{category.name}</span>
+                              <div className="flex items-center gap-1">
+                                <span className="font-medium text-slate-200">{category.name}</span>
+                                {tx.isAutoCategorized && (
+                                  <span title={tx.autoCategoryRule || 'Catalogado Automaticamente'}>
+                                    <Sparkles className="w-2.5 h-2.5 text-emerald-400" />
+                                  </span>
+                                )}
+                              </div>
                             </div>
                           </div>
                         ) : (
@@ -421,10 +458,18 @@ export const TransactionGrid: React.FC = () => {
                           </span>
                         )}
                         {tx.status === 'pending' && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                            <Clock className="w-2.5 h-2.5" />
-                            Pendente
-                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              markTransactionAsCleared(tx.id);
+                            }}
+                            className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-500/15 hover:bg-emerald-500/20 text-amber-300 hover:text-emerald-300 border border-amber-500/30 hover:border-emerald-500/30 transition-all cursor-pointer"
+                            title="Clique para liquidar / marcar como compensada"
+                          >
+                            <Clock className="w-2.5 h-2.5 text-amber-400" />
+                            Pendente (Pagar)
+                          </button>
                         )}
                         {tx.status === 'void' && (
                           <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">
@@ -453,7 +498,21 @@ export const TransactionGrid: React.FC = () => {
                       {/* Ações */}
                       <td className="py-2 px-3 text-center whitespace-nowrap">
                         <div className="flex items-center justify-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {tx.status === 'pending' && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                markTransactionAsCleared(tx.id);
+                              }}
+                              className="p-1 text-amber-400 hover:text-emerald-400 hover:bg-emerald-500/10 rounded transition-colors"
+                              title="Liquidar e Compensar Transação"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
                           <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               openEditTransactionModal(tx);
@@ -464,6 +523,7 @@ export const TransactionGrid: React.FC = () => {
                             <Edit3 className="w-3.5 h-3.5" />
                           </button>
                           <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               duplicateTransaction(tx.id);
@@ -474,6 +534,7 @@ export const TransactionGrid: React.FC = () => {
                             <Copy className="w-3.5 h-3.5" />
                           </button>
                           <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               if (confirm(`Deseja excluir a transação "${tx.payee}"?`)) {

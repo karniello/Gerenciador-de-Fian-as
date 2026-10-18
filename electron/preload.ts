@@ -13,12 +13,34 @@ export interface AlzexDesktopAPI {
     exec: (sql: string, params?: any[]) => Promise<{ changes: number; lastInsertRowid: number | bigint }>;
     transaction: <T = any>(callbackId: string, actions: Array<{ sql: string; params?: any[] }>) => Promise<T>;
   };
-  // Gestão de Arquivos e Backups
+  // Gestão de Arquivos e Auto-Backup Definido pelo Usuário
   backup: {
-    createBackup: () => Promise<{ success: boolean; filePath: string }>;
+    getSettings: () => Promise<{
+      autoBackupEnabled: boolean;
+      customBackupDir: string | null;
+      maxBackupsToKeep: number;
+      lastBackupDate: string | null;
+      defaultBackupsDir: string;
+      activeBackupDir: string;
+    }>;
+    selectFolder: () => Promise<{
+      success: boolean;
+      folderPath?: string;
+      message?: string;
+      config?: any;
+    }>;
+    updateSettings: (settings: {
+      autoBackupEnabled?: boolean;
+      customBackupDir?: string | null;
+      maxBackupsToKeep?: number;
+    }) => Promise<{ success: boolean; config: any }>;
+    triggerManual: () => Promise<{ success: boolean; filePath?: string; error?: string }>;
     restoreBackup: () => Promise<{ success: boolean; message: string }>;
-    exportData: (format: 'json' | 'csv' | 'sqlite', dataPayload?: any) => Promise<{ success: boolean; path?: string }>;
-    importData: () => Promise<{ success: boolean; content?: string; format?: string }>;
+  };
+  // Notificações Nativas do Sistema Operacional
+  notifications: {
+    send: (options: { title: string; body: string; icon?: string }) => Promise<{ success: boolean; error?: string; reason?: string }>;
+    isSupported: () => Promise<boolean>;
   };
   // Controles de Janela do Desktop
   window: {
@@ -43,10 +65,15 @@ const alzexApi: AlzexDesktopAPI = {
     transaction: (callbackId, actions) => ipcRenderer.invoke('db:transaction', { callbackId, actions }),
   },
   backup: {
-    createBackup: () => ipcRenderer.invoke('backup:create'),
+    getSettings: () => ipcRenderer.invoke('backup:get-settings'),
+    selectFolder: () => ipcRenderer.invoke('backup:select-folder'),
+    updateSettings: (settings) => ipcRenderer.invoke('backup:update-settings', settings),
+    triggerManual: () => ipcRenderer.invoke('backup:trigger-manual'),
     restoreBackup: () => ipcRenderer.invoke('backup:restore'),
-    exportData: (format, dataPayload) => ipcRenderer.invoke('data:export', { format, dataPayload }),
-    importData: () => ipcRenderer.invoke('data:import'),
+  },
+  notifications: {
+    send: (options) => ipcRenderer.invoke('notifications:send', options),
+    isSupported: () => ipcRenderer.invoke('notifications:isSupported'),
   },
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),

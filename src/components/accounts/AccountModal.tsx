@@ -21,8 +21,6 @@ export const AccountModal: React.FC = () => {
     activeCurrencyCode 
   } = useFinanceStore();
 
-  if (!isAccountModalOpen) return null;
-
   const [name, setName] = useState(editingAccount?.name || '');
   const [type, setType] = useState<AccountType>(editingAccount?.type || 'checking');
   const [initialBalance, setInitialBalance] = useState<number>(editingAccount?.initialBalance || 0);
@@ -60,6 +58,8 @@ export const AccountModal: React.FC = () => {
     });
   };
 
+  if (!isAccountModalOpen) return null;
+
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-xl max-w-md w-full shadow-2xl overflow-hidden">
@@ -72,7 +72,11 @@ export const AccountModal: React.FC = () => {
               {editingAccount ? 'Editar Conta Financeira' : 'Nova Conta Financeira'}
             </h3>
           </div>
-          <button onClick={closeAccountModal} className="text-slate-400 hover:text-slate-100">
+          <button
+            type="button"
+            onClick={closeAccountModal}
+            className="text-slate-400 hover:text-slate-100"
+          >
             <X className="w-4 h-4" />
           </button>
         </div>

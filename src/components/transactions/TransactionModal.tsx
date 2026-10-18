@@ -13,7 +13,8 @@ import {
   TransactionType, 
   TransactionStatus, 
   TransactionSplit, 
-  RecurrenceFrequency 
+  RecurrenceFrequency,
+  PaymentMethod,
 } from '../../types';
 import { 
   X, 
@@ -28,8 +29,13 @@ import {
   Layers, 
   User, 
   Tag as TagIcon,
+  CreditCard,
+  Landmark,
   Sparkles,
-  Calendar
+  Calendar,
+  Coins,
+  Globe,
+  Calculator
 } from 'lucide-react';
 import { formatCurrency } from '../../utils/formatters';
 
@@ -45,14 +51,16 @@ export const TransactionModal: React.FC = () => {
     projects,
     tags,
     transactions,
+    currencies,
     activeCurrencyCode,
   } = useFinanceStore();
-
-  if (!isTransactionModalOpen) return null;
 
   // Estados do Formulário
   const [type, setType] = useState<TransactionType>(editingTransaction?.type || 'expense');
   const [amount, setAmount] = useState<number>(editingTransaction?.amount || 0);
+  const [targetAmount, setTargetAmount] = useState<number>(editingTransaction?.targetAmount || 0);
+  const [exchangeRate, setExchangeRate] = useState<number>(editingTransaction?.exchangeRate || 1);
+  const [isCustomRate, setIsCustomRate] = useState<boolean>(false);
   const [date, setDate] = useState<string>(editingTransaction?.date || new Date().toISOString().split('T')[0]);
   const [accountId, setAccountId] = useState<string>(editingTransaction?.accountId || accounts[0]?.id || '');
   const [toAccountId, setToAccountId] = useState<string>(editingTransaction?.toAccountId || accounts[1]?.id || '');
@@ -102,8 +110,30 @@ export const TransactionModal: React.FC = () => {
       ]);
       setIsRecurring(editingTransaction.isRecurring || false);
       setRecurrenceFrequency(editingTransaction.recurrenceFrequency || 'monthly');
+      if (editingTransaction.targetAmount) {
+        setTargetAmount(editingTransaction.targetAmount);
+        setIsCustomRate(true);
+      }
+      if (editingTransaction.exchangeRate) {
+        setExchangeRate(editingTransaction.exchangeRate);
+      }
     }
   }, [editingTransaction]);
+
+  const sourceAccount = accounts.find((a) => a.id === accountId);
+  const targetAccount = accounts.find((a) => a.id === toAccountId);
+  const isCrossCurrency = type === 'transfer' && !!sourceAccount && !!targetAccount && sourceAccount.currencyCode !== targetAccount.currencyCode;
+
+  const srcCurrency = currencies.find((c) => c.code === sourceAccount?.currencyCode) || currencies[0];
+  const destCurrency = currencies.find((c) => c.code === targetAccount?.currencyCode) || currencies[0];
+  const standardRate = ((srcCurrency?.rateToBase || 1.0) / (destCurrency?.rateToBase || 1.0));
+
+  useEffect(() => {
+    if (isCrossCurrency && !isCustomRate) {
+      setExchangeRate(standardRate);
+      setTargetAmount(Math.round(amount * standardRate * 100) / 100);
+    }
+  }, [amount, accountId, toAccountId, isCrossCurrency, standardRate, isCustomRate]);
 
   // Histórico único de beneficiários para autocomplete
   const uniquePayees = Array.from(new Set(transactions.map((t) => t.payee).filter(Boolean)));
@@ -192,6 +222,8 @@ export const TransactionModal: React.FC = () => {
       id: editingTransaction?.id,
       type,
       amount: Number(amount),
+      targetAmount: isCrossCurrency ? Number(targetAmount) : undefined,
+      exchangeRate: isCrossCurrency ? Number(exchangeRate) : undefined,
       date,
       accountId,
       toAccountId: type === 'transfer' ? toAccountId : undefined,
@@ -211,6 +243,8 @@ export const TransactionModal: React.FC = () => {
   };
 
   const filteredCategories = categories.filter((c) => c.type === (type === 'income' ? 'income' : 'expense'));
+
+  if (!isTransactionModalOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
@@ -238,6 +272,7 @@ export const TransactionModal: React.FC = () => {
             </div>
           </div>
           <button
+            type="button"
             onClick={closeTransactionModal}
             className="w-7 h-7 flex items-center justify-center rounded-lg hover:bg-slate-800 text-slate-400 hover:text-slate-100 transition-colors"
           >
@@ -410,6 +445,74 @@ export const TransactionModal: React.FC = () => {
               </div>
             )}
           </div>
+
+          {/* PAINEL DE CONVERSÃO DE CÂMBIO MULTI-MOEDA */}
+          {type === 'transfer' && isCrossCurrency && (
+            <div className="p-3.5 bg-gradient-to-r from-emerald-950/40 via-slate-950/80 to-sky-950/40 border border-emerald-500/30 rounded-xl space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Coins className="w-4 h-4 text-emerald-400" />
+                  <span className="text-xs font-bold text-emerald-300">Conversão de Câmbio entre Contas</span>
+                </div>
+                <span className="text-[11px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/25 px-2.5 py-0.5 rounded-full font-mono font-medium">
+                  1 {sourceAccount?.currencyCode} = {exchangeRate.toFixed(4)} {targetAccount?.currencyCode}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3 pt-1">
+                <div>
+                  <label className="block text-[10px] font-semibold text-slate-400 mb-1">
+                    Débito na Origem ({sourceAccount?.currencyCode})
+                  </label>
+                  <div className="p-2.5 bg-slate-900 border border-slate-800 rounded-lg text-xs font-mono font-bold text-rose-300 flex items-center justify-between">
+                    <span>-{formatCurrency(amount, sourceAccount?.currencyCode)}</span>
+                    <span className="text-[10px] text-slate-500">{sourceAccount?.name}</span>
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="text-[10px] font-semibold text-slate-300">
+                      Crédito no Destino ({targetAccount?.currencyCode}) *
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomRate(!isCustomRate)}
+                      className="text-[10px] text-sky-400 hover:text-sky-300 cursor-pointer flex items-center gap-1"
+                    >
+                      <Calculator className="w-3 h-3" />
+                      {isCustomRate ? 'Usar Taxa Padrão' : 'Personalizar Taxa'}
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      value={targetAmount || ''}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setTargetAmount(val);
+                        setIsCustomRate(true);
+                        if (amount > 0) {
+                          setExchangeRate(val / amount);
+                        }
+                      }}
+                      className="w-full bg-slate-900 border border-emerald-500/40 text-emerald-300 text-xs font-mono font-bold rounded-lg px-3 py-2 focus:outline-none focus:border-emerald-400"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800 font-mono">
+                <span>Taxa Efetiva: 1 {targetAccount?.currencyCode} = {(exchangeRate > 0 ? 1 / exchangeRate : 0).toFixed(4)} {sourceAccount?.currencyCode}</span>
+                <span className="text-emerald-400 flex items-center gap-1">
+                  <Globe className="w-3 h-3" />
+                  Saldo atualizado nas duas moedas
+                </span>
+              </div>
+            </div>
+          )}
 
           {/* SEÇÃO SPLIT TRANSACTIONS (DIVISÃO DE ITENS) */}
           {isSplit && type === 'expense' && (
